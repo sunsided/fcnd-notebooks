@@ -1,0 +1,565 @@
+\documentclass{article}
+\usepackage{times}
+\usepackage{amsmath}
+\usepackage{stackengine}
+\usepackage{fullpage}
+\newcommand\Vector[1]{\setstackEOL{,}\bracketVectorstack{#1}}
+
+\def\vec#1{{\bf #1}}
+
+\begin{document}
+
+\section{Notation}
+
+\begin{align}
+  \textrm{Position in body frame is}\; \vec{x}_B &= [x_B\;y_B\;z_B]^T \\
+  \textrm{Position in inertial frame is}\;\vec{x}_I &= [x_I\;y_I\;z_I]^T \\
+  \textrm{Attitude is}\;\Theta &= [\phi\;\theta\;\psi]^T =
+  [\textrm{roll}\;\textrm{pitch}\; \textrm{yaw}]^T\\
+  \textrm{Rotation from frame 1 to frame 2 is}\; H_1^2 \\
+  \textrm{Rotation from inertial to body frame is}\; H_I^B \\
+  \textrm{Velocity in body frame is}\;\vec{v}_B &= [u\;v\;w]^T\\
+  \textrm{Angular rate in body frame is}\; \vec{\omega}_B &= [p\;q\;r]^T\\
+  \textrm{Total velocity in body frame is}\; V &= \sqrt{u^2 + v^2 + w^2}\\
+  \textrm{Angle of attack in body frame is}\;\alpha &= \tan^{-1}(w/u)\\
+  \textrm{Flight path angle is}\; \gamma &= \theta - \alpha \\
+  \textrm{Sideslip angle in body frame is}\; \beta &= \sin^{-1}(v/V)\\
+  \textrm{Flight path heading is}\; \xi &= \psi + \beta \\
+  \textrm{Bank angle is} \; \beta \\
+  \textrm{Magnitude of the thrust vector is}\;T\\
+  \intertext{If the thrust of vehicle is aligned with the centerline ($x_B$
+    axis), then} [T_x\; T_y\; T_z]^T &= \Vector{T \cos \alpha, 0, -T
+    \sin \alpha}\\
+  \textrm{Aerodynamic forces are}\; \Vector{X, Y, Z}_B &= H^B_I \Vector{-D,SF,-L}\\
+  \intertext{where $L$ is lift, $D$ is drag, and $SF$ is side force.} \\
+  \textrm{Aerodynamic moments are}\; \Vector{L, M, N}_B &= H^B_I
+  \Vector{L,M,N}_I \\
+  \intertext{Yes, the roll moment and lift force are both denoted by L...}
+  \textrm{Mass of vehicle is}\;m\\
+  \textrm{Reference area (e.g., wing area) is}\; S \\
+  \textrm{Wing span is}\; b \\
+  \textrm{Mean aerodynamic chord}\;\bar{c}\\
+  \textrm{Elevator deflection is}\; \delta E\\
+  \textrm{Aileron deflection is}\; \delta A\\
+  \textrm{Rudder deflection is}\; \delta R\\
+  \textrm{Dynamic pressure is}\; \bar{q} = \frac{1}{2}\rho V^2
+\end{align}
+
+\clearpage
+
+\section{Longitudinal Model:}
+
+\begin{align}
+  \intertext{Longitudinal equations of motion are}\;
+  \dot{x}_I &= u \cos \theta + w \sin \theta \\
+  \dot{z}_I &= -u \sin \theta + w \cos \theta \\
+  \dot{\theta} &= q \\
+  \dot{u} &= F_X/m - qw \\
+  \dot{w} &= F_Z/m + qu \\
+  \dot{q} &= M_m/I_{yy} \\
+  \intertext{To get forces and moments (assuming zero wind)}\;
+  \textrm{Moment of inertia about the $y$ axis is}\;I_{yy} & \\
+  \textrm{Aerodynamic forces in stability frame:} & \begin{bmatrix} -D \\ -L \end{bmatrix}\\
+  \textrm{Aerodynamic forces in body frame:} & \begin{bmatrix} \cos \alpha & -\sin \alpha \\ 
+    \sin \alpha & \cos \alpha \end{bmatrix} \times 
+    \begin{bmatrix} -D \\ -L \end{bmatrix}\\
+  \textrm{Force in $x_B$ direction}\;F_X &= L \sin \alpha -D \cos \alpha + T -
+  mg \sin \theta \\
+  \textrm{Force in $z_B$ direction}\;F_Z &= - L \cos \alpha - D \sin \alpha + mg \cos \theta\\
+  \intertext{We're going to simplify by ignoring the forces and moments from
+    the fuselage and fuselage-wing interference, and compute the forces and
+    moments as:}
+  \textrm{Lift:}\quad  L&=C_L\bar{q}S \\
+  C_L &= C_{L_0} + C_{L_\alpha} \alpha + C_{L_{\delta E}} \delta E\\
+  \textrm{Drag:}\quad    D &= C_D\bar{q}S\\
+  C_D &= C_{D_0} + \epsilon C_L^2 \\
+  &= (C_{D_0}+\epsilon C^2_{L_0}) + C_{D_\alpha} + C_{L_\alpha^2}\alpha^2\\
+  \textrm{with induced drag factor} \; \epsilon \\
+  C_{D_\alpha} &= 2 \epsilon C_{L_0} C_{L_\alpha} \\
+  C_{D_\alpha^2} &= \epsilon C_{L_\alpha^2} \\
+  \textrm{Pitch:} \quad M &= C_M\bar{q}S \bar{c}\\
+  C_M &= C_{M_0} + C_{M_\alpha} \alpha + C_{M_\delta E} \delta E \\
+  \textrm{where the elevator deflection is}\;\delta E
+\end{align} 
+
+Quantities needed to implement this model: 
+
+\begin{tabular}{lp{4in}}
+  Initial conditions: & $\Vector{x_0,y_0,z_0}_I$, $\Vector{\dot{x}_0,\dot{y}_0,\dot{z}_0}_I$,
+  $\Theta_0$, $\vec{\omega}_0$\\
+  Vehicle properties: & mass $m$, wing area $S$, mean aerodynamic chord $\bar{c}$, inertial matrix $I$\\
+  Coefficients: & $C_{L_0}$, $C_{L_\alpha}$, $C_{D_0}$, $\epsilon$, $C_{L_\alpha^2}$, \\
+  Air density: & $\rho(x)$ \\
+  Gravity: & $g$ \\
+  Controls: & thrust $T$, elevator deflection $\delta E$
+\end{tabular}
+  
+\section{Linearized Longitudinal Model:}
+
+\begin{align*}
+  \dot{x}_I &= u \cos \theta + w \sin \theta \\
+  \dot{z}_I &= -u \sin \theta + w \cos \theta \\
+  \dot{\theta} &= q \\
+  \dot{u} &= -g \sin \theta + \frac{\rho V^2 S}{2m}\left [ C_{X_0} + C_{X_\alpha}\alpha
+    + C_{X_q}\frac{\bar{c}q}{2V} + C_{X_{\delta_e}\delta_e} \right ] + (T+\delta T)/m - qw \\
+  \dot{w} &= -g \cos \theta + \frac{\rho V^2 S}{2m}\left [ C_{Z_0} + C_{Z_\alpha}\alpha
+    + C_{Z_q}\frac{\bar{c}q}{2V} + C_{Z_{\delta_e} \delta_e} \right ] + qu \\
+  \dot{q} &= \frac{\rho V^2\bar{c}S}{2I_{yy}} \left [C_{m_0} + C_{m_\alpha}\alpha + C_{m_q} \frac{\bar{c}q}{2V} + C_{m_{\delta e}} \delta e \right ]   \\
+\end{align*}
+
+\begin{align*}
+w &= V \sin \alpha \\
+\bar{w} &= V^* \cos \alpha^* \bar{\alpha}\\
+\begin{bmatrix}
+\dot{\bar{x_I}} \\
+\dot{\bar{z_I}} \\
+\dot{\bar{\theta}} \\
+\dot{\bar{u}} \\
+\dot{\bar{\alpha}} \\
+\dot{\bar{q}} \\
+\end{bmatrix} &= 
+\begin{bmatrix}
+0 & 0 & -u^* \sin \theta^* + w^* \cos \theta^* & \cos \theta^* & V^*\sin \theta^* \cos \alpha^* & 0 \\
+0 & 0 & -u^* \cos \theta^* - w^* \sin \theta^* & -\sin \theta^* & V^* \cos \theta^* \cos \alpha^*& 0 \\
+0 & 0 & 0 & 0 & 0 & 1 \\
+0 & 0 & -g\cos\theta^* & X_u & X_w V^* \cos\alpha & X_q \\
+0 & 0 & \frac{-g\sin\theta^*}{V^* \cos \alpha^*} & \frac{Z_u}{V^* \cos \alpha^*} & Z_w & \frac{Z_q}{V^* \cos \alpha^*} \\
+0 & 0 & 0 & M_u & M_w V^* \cos \alpha^* & M_q 
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+\bar{x_I} \\
+\bar{z_I} \\
+\bar{\theta} \\
+\bar{u} \\
+\bar{\alpha} \\
+\bar{q} \\
+\end{bmatrix} 
++
+\begin{bmatrix}
+0 & 0 & \\
+0 & 0 & \\
+0 & 0 & \\
+X_{\delta e} & X_{\delta t} \\
+\frac{Z_{\delta e}}{V \cos \alpha} & 0 \\
+M_{\delta e} & 0 \\
+\end{bmatrix} \cdot
+\begin{bmatrix}
+\bar{\delta} e\\
+\bar{\delta} T\\
+\end{bmatrix}
+\end{align*}
+
+
+\iffalse 
+%%% Parametric form in terms of u, w rather than u, \alpha 
+\begin{align*}
+\alpha &= \tan^{-1}(\frac{w}{u})\\
+V &= \sqrt{u^2+w^2}
+\end{align*}
+
+
+\begin{align*}
+  \dot{u} &= -g \sin \theta + \frac{\rho (u^2 + w^2)^2 S}{2m}\left [ C_{X_0} + C_{X_\alpha}\tan^{-1}(\frac{w}{u}) + C_{X_{\delta_e}\delta_e} \right ] + \frac{\rho \sqrt{u^2+w^2}S\bar{c}q}{4m}C_{X_q}+ (T+\delta T)/m - qw \\
+  \dot{w} &= -g \cos \theta + \frac{\rho (u^2 + w^2)^2 S}{2m}\left [ C_{Z_0} + C_{Z_\alpha}\tan^{-1}(\frac{w}{u}) + C_{Z_{\delta_e}\delta_e} \right ] + \frac{\rho \sqrt{u^2+w^2}S\bar{c}q}{4m}C_{Z_q}+ qu \\
+  \dot{q} &= \frac{\rho (u^2+w^2)^2\bar{c}S}{2I_{yy}} \left [C_{m_0} + C_{m_\alpha}\tan^{-1}(\frac{w}{u})+ C_{m_{\delta e}} \delta e \right ] + \frac{\rho \sqrt{u^2+w^2}S\bar{c}^2q}{4I_{yy}}C_{m_q}  \\
+\end{align*}
+
+\begin{align*}
+\begin{bmatrix}
+\dot{\bar{x_I}} \\
+\dot{\bar{z_I}} \\
+\dot{\bar{\theta}} \\
+\dot{\bar{u}} \\
+\dot{\bar{w}} \\
+\dot{\bar{q}} \\
+\end{bmatrix} &= 
+\begin{bmatrix}
+0 & 0 & -u \sin \theta^* + w \cos \theta^* & \cos \theta^* & \sin \theta^* & 0 \\
+0 & 0 & -u \cos \theta^* - w \sin \theta^* & -\sin \theta^* & \cos \theta^* & 0 \\
+0 & 0 & 0 & 0 & 0 & 1 \\
+0 & 0 & -g\cos\theta^* & X_u & X_w & X_q \\
+0 & 0 & -g\sin\theta^* & Z_u & Z_w & Z_q \\
+0 & 0 & 0 & M_u & M_w & M_q 
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+\bar{x_I} \\
+\bar{z_I} \\
+\bar{\theta} \\
+\bar{u} \\
+\bar{\alpha} \\
+\bar{q} \\
+\end{bmatrix} 
++
+\begin{bmatrix}
+0 & 0 & \\
+0 & 0 & \\
+0 & 0 & \\
+X_{\delta e} & X_{\delta t} \\
+Z_{\delta e} & 0 \\
+M_{\delta e} & 0 \\
+\end{bmatrix} \cdot
+\begin{bmatrix}
+\bar{\delta} e\\
+\bar{\delta} T\\
+\end{bmatrix}
+\end{align*}
+\fi
+
+\begin{tabular}{|c|c|}
+\hline
+Coefficient & Formula \\
+\hline
+$X_u$ & $\frac{u^* \rho S}{m}\left [ C_{X_0} + C_{X_\alpha} \alpha^* + C_{X_{\delta e}} \delta e^* \right ] - \frac{\rho S w^* C_{X_\alpha}}{2m} + \frac{\rho S\bar{c}C_{X_q}u^* q^*}{4 m V^*} $\\
+$X_w$ & $-q^* + \frac{w^* \rho S}{m}\left [ C_{X_0} + C_{X_\alpha} \alpha^* + C_{X_{\delta e}} \delta e^* \right ] + \frac{\rho S u^* C_{X_\alpha}}{2m} + \frac{\rho S\bar{c}C_{X_q}w^* q^*}{4 m V^*} $\\
+$X_q$ & $-w^* + \frac{\rho V^*SC_{X_q}\bar{c}}{4m}$\\
+$X_{\delta e}$ & $\frac{\rho V^{*2} S C_{X_{\delta e}}}{2m}$\\
+$X_{\delta T}$ & $\frac{1}{m}$ \\
+$Z_u$ & $q^* + \frac{u^* \rho S}{m}\left [ C_{Z_0} + C_{Z_\alpha} \alpha^* + C_{Z_{\delta e}} \delta e^* \right ] - \frac{\rho S w^* C_{Z_\alpha}}{2m} + \frac{\rho S\bar{c}C_{Z_q}u^* q^*}{4 m V^*} $\\
+$Z_w$ & $\frac{w^* \rho S}{m}\left [ C_{Z_0} + C_{Z_\alpha} \alpha^* + C_{Z_{\delta e}} \delta e^* \right ] + \frac{\rho S u^* C_{Z_\alpha}}{2m} + \frac{\rho S\bar{c}C_{Z_q}w^* q^*}{4 m V^*} $\\
+$Z_q$ & $u^* + \frac{\rho V^*SC_{Z_q}\bar{c}}{4m}$\\
+$Z_{\delta e}$ & $\frac{\rho V^{*2} S C_{Z_{\delta e}}}{2m}$\\
+$M_u$ & $\frac{u^* \rho S \bar{c}}{I_{yy}}\left [ C_{m_0} + C_{m_\alpha} \alpha^* + C_{m_{\delta e}} \delta e^* \right ] - \frac{\rho S w^* C_{m_\alpha}}{2I_{yy}} + \frac{\rho S\bar{c}^2 C_{m_q}u^* q^*}{4 I_{yy} V^*} $\\
+$M_w$ & $\frac{w^* \rho S \bar{c}}{I_{yy}}\left [ C_{m_0} + C_{m_\alpha} \alpha^* + C_{m_{\delta e}} \delta e^* \right ] - \frac{\rho S u^* C_{m_\alpha}}{2I_{yy}} + \frac{\rho S\bar{c}^2 C_{m_q}w^* q^*}{4 I_{yy} V^*} $\\
+$M_q$ & $\frac{\rho V^* S \bar{c}^2C_{m_{\delta e}}}{4I_{yy}}$\\
+$M_{\delta e}$ & $\frac{\rho V^{*2} S \bar{c}C_{m_{\delta e}}}{4I_{yy}}$\\
+\hline
+\end{tabular}
+
+\clearpage
+
+\section{Lateral-Directional motion:}
+
+\begin{align}
+  \intertext{Lateral-directional equations of motion are}\; \dot{x}_I &=
+  u (\cos \theta \cos \psi) + v (\sin \phi \sin \theta \cos \psi - \cos \phi \sin \psi) +  w (\cos \phi \sin \theta \cos \psi + \sin \phi \sin \psi) \\
+  \dot{y}_I &= u (\cos \theta \sin \psi) + v (\sin \phi \sin \theta \cos \psi +
+  \cos \phi \cos \psi) +
+  w (\cos \phi \sin \theta \sin \psi - \sin \phi \cos \psi) \\
+  \dot{z}_I &= - u \sin \theta + v \sin \phi \cos \theta + w \cos \phi \cos \theta \\
+  \dot{\phi} &= p + r \cos \phi \tan \theta \\
+  \dot{\theta} &= - r \sin \phi \\
+  \dot{\psi} &= r \cos \phi \sec \theta \\
+  \dot{u} &= -g \sin \theta + \frac{\rho V^2 S}{2m}\left [ C_{X_0} + C_{X_\alpha}\alpha
+    \right ] + T/m +rv \\
+  \dot{v} &= g \cos \theta \sin \phi + \frac{\rho V^2 S}{2m}\left [ C_{Y_0} + C_{Y_\beta}\beta
+    + C_{Y_p}\frac{bp}{2V} + C_{Y_r}\frac{br}{2V} + C_{Y_{\delta_a}\delta_a} + C_{Y_{\delta_r}\delta_r} \right ] +pw - ru \\
+  \dot{w} &= g \cos \theta \cos \phi + \frac{\rho V^2 S}{2m}\left [ C_{Z_0} + C_{Z_\alpha}\alpha
+    \right ] -pv \\
+  \dot{p} &= \left (I_{zz}L + I_{xz}N \right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+  \intertext{remembering that $L$ and $N$ are the rolling and yawing moments.}
+  \dot{q} &= \frac{\rho V^2\bar{c}S}{2I_{yy}} \left [C_{m_0} + C_{m_\alpha}\alpha + C_{m_q} \frac{\bar{c}q}{2V} + C_{m_{\delta e}} \delta e \right ]   \\
+  \dot{r} &= \left (I_{xz}L + I_{xx}N \right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+  \intertext{And we can write the rolling (not lift) and yawing moments as}
+  L&=\frac{1}{2}\rho V^2 S b \left [ C_{l_0} + C_{l_\beta}\beta + C_{l_p}\frac{bp}{2V} + C_{l_r}\frac{br}{2V} + C_{l_{\delta a}} \delta a + C_{l_{\delta r}} \delta r \right ] \\
+  N&=\frac{1}{2}\rho V^2 S b \left [ C_{r_0} + C_{r_\beta}\beta + C_{r_p}\frac{bp}{2V} + C_{r_r}\frac{br}{2V} + C_{r_{\delta a}} \delta a + C_{r_{\delta r}} \delta r \right ] \\
+\end{align}
+\begin{align}
+  \intertext{If we are in level flight, with a small sideslip angle $\beta$,
+    then our forces and moments are:}
+  Y &= C_{Y_\beta}\bar{q}S \beta + C_{Y_{\delta R}} \delta R \\
+  \intertext{It's weird that the sideforce should be given with respect to the
+    reference area $S$ and dynamic pressure $\bar{q}$. Unpacking the
+    co-efficient, it gets renormalised for the tail, as}
+  C_{Y_\beta} &= \left ( \frac{\bar{q}_{vt}}{\bar{q}}\right ) \left ( 1 + \frac{\partial \sigma}{\partial \beta} \right ) \eta_{vt} \left (\frac{S_{vt}}{S} \right ) \left (C_{Y_{\beta_{vt}}} \right ). \\
+  \intertext{where $\eta_{vt}$ is a tail efficiency parameter, $\sigma$ is the
+    sidewash angle which we can ignore, and the parameters $(\cdot)_{vt}$ are
+    the relevant parameters of the vertical tail. Similarly, the rolling and
+    yawing moments get translated to the
+    tail, for example as}  C_{N_{\beta_{vt}}} &= -C_{Y_{\beta_{vt}}} \eta_{vt} \frac{S_{vt} l_{vt}}{S b} \\
+  \intertext{where $l_{vt}$ is the vertical tail length, i.e., the distance
+    from centre of mass to tail centre of pressure. But if we are banked, then
+    the longitudinal forces will have lateral-directional effect too.}
+\end{align}
+
+Additional quantities needed to implement this model: 
+
+\begin{tabular}{lp{4in}}
+  Coefficients: & $C_{Y_0}$, $C_{Y_{\beta}}$,
+  $C_{Y_p}$,$C_{Y_r}$,$C_{Y_{\delta a}}$,$C_{Y_{\delta r}}$, 
+  $C_{l_0}$, $C_{l_{\beta}}$,
+  $C_{l_p}$,$C_{l_r}$,$C_{l_{\delta a}}$,$C_{l_{\delta r}}$, 
+  $C_{r_0}$, $C_{r_{\beta}}$,
+  $C_{r_p}$,$C_{r_r}$,$C_{r_{\delta a}}$,$C_{r_{\delta r}}$ \\
+  Wing parameters: & $b$, $S$ \\
+  Tail parameters: & $S_{vt}$, $\bar{q}_{vt}$, $\eta_{vt}$, $l_{vt}$.
+\end{tabular}
+
+
+
+\section{Linearized Lateral-Directional Model:}
+
+Because we have the trim state and the longitudinal model, for the lateral
+dynamics case we can basically forget about the $x$, $z$ and pitch variables in
+the state. Given a trim state that contains all the relevant variables, we can
+build and analyze a linear model that only contains the lateral velocity
+$v$, the roll and yaw $\phi$ and $\psi$, and the corresponding
+rates $p$ and $r$. 
+
+\begin{align*}
+  \dot{v} &= g \cos \theta \sin \phi + \frac{\rho V^2 S}{2m}\left [ C_{Y_0} + C_{Y_\beta}\beta
+    + C_{Y_p}\frac{bp}{2V} + C_{Y_r}\frac{br}{2V} + C_{Y_{\delta_a}\delta_a} + C_{Y_{\delta_r}\delta_r} \right ] +pw - ru \\
+  \dot{p} &= \left (I_{zz}L + I_{xz}N \right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+  \dot{r} &= \left (I_{xz}L + I_{xx}N \right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+  \dot{\phi} &= p + r \cos \phi \tan \theta \\
+  \dot{\psi} &= r \cos \phi \sec \theta \\
+\intertext{But}
+v &= V \sin \beta \\
+\intertext{Linearizing around $\beta = \beta^*$:} 
+\bar{v} &= V^* \cos \beta^* \bar{\beta} \\
+\dot{\bar{\beta}} &= \frac{1}{V^* \cos \beta^*} \dot{\bar{v}} 
+\end{align*}
+
+
+\begin{align*}
+\begin{bmatrix}
+\dot{\bar{\beta}} \\
+\dot{\bar{p}} \\
+\dot{\bar{r}} \\
+\dot{\bar{\phi}} \\
+\dot{\bar{\psi}} \\
+\end{bmatrix} &= 
+\begin{bmatrix}
+Y_v & \frac{Y_p}{V^* \cos \beta^*} & \frac{Y_r}{V^* \cos \beta^*} & \frac{g \cos \theta^* \cos \phi^*}{V^* \cos \beta^*} & 0 \\
+L_v V^* \cos \beta^* & L_p & L_r & 0 & 0 \\
+N_v V^* \cos \beta^* & N_p & N_r & 0 & 0 \\
+0 & 1 & \cos \phi^* \tan \theta^* & q^* \cos \phi^* \tan \theta^* \\
+& & & -r^* \sin \phi^* \tan \theta^*  & 0 \\
+0 & 0 & \cos \phi^* \sec \theta^* & p^* \cos \phi^* \sec \theta^* \\
+& & & -r^* \sin \phi^* \sec \theta^*  & 0
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+\bar{\beta} \\
+\bar{p} \\
+\bar{r} \\
+\bar{\phi} \\
+\bar{\psi} 
+\end{bmatrix} 
++
+\begin{bmatrix}
+\frac{Y_{\delta a}}{V^* \cos \beta^*} & \frac{Y_{\delta r}}{V^* \cos \beta^*} \\
+L_{\delta a} & L_{\delta r} & \\
+N_{\delta a} & N_{\delta r} & \\
+0 & 0 \\
+0 & 0 \\
+\end{bmatrix} \cdot
+\begin{bmatrix}
+\bar{\delta} a\\
+\bar{\delta} r\\
+\end{bmatrix}
+\end{align*}
+
+\begin{align*}
+  \intertext{Aircraft are often symmetric about the plane spanned by $x_b$ and
+    $z_b$, which means that} I &= \begin{bmatrix} I_{xx} & 0 & -I_{xz} \\
+    0 & I_{yy} & 0 \\
+    -I_{xz} & 0 & I_{zz} \end{bmatrix} \\
+  \intertext{We can further define the following terms}
+  \Gamma &= I_{xx}I_{zz} - I_{xz}^2 \\
+  \Gamma_1 &= \frac{I_{xz}(I_{xx} - I_{yy} +I_{zz})}{\Gamma} \\
+  \Gamma_2 &= \frac{I_{zz}(I_{zz} - I_{yy}) +I_{xz}^2}{\Gamma} \\
+  \Gamma_3 &= \frac{I_{zz}}{\Gamma}\\
+  \Gamma_4 &= \frac{I_{xz}}{\Gamma}\\
+  \Gamma_5 &= \frac{I_{zz}-I_{xx}}{I_{yy}}\\
+  \Gamma_6 &= \frac{I_{xz}}{I_{yy}}\\
+  \Gamma_7 &= \frac{(I_{xx}-I_{yy})I_{xx}+I_{xz}^2}{\Gamma}\\
+  \Gamma_8 &= \frac{I_{xx}}{\Gamma} \\
+  \intertext{We can therefore rewrite the angular rate derivatives
+    as follows:}
+  \dot{p} &= \Gamma_1 pq - \Gamma_2 qr  \\
+  \dot{q} &= \Gamma_5 pr - \Gamma_6 (p^2-r^2) \\
+  \dot{r} &= \Gamma_7 pq - \Gamma_1 qr  \\
+  \end{align*}
+
+\begin{tabular}{|c|c|}
+  \hline
+  Coefficient & Formula \\
+  \hline
+  $Y_v$ & $\frac{v^* \rho Sb}{4mV^*}\left [ C_{Y_p}p^* + C_{Y_r} r^*\right ] +
+  \frac{v^*\rho S}{m}\left [C_{Y_0} + C_{Y_\beta} \beta^* + C_{Y_{\delta
+        a}}\delta a^* + C_{Y_{\delta r}} \delta r^* \right ] + \frac{\rho S
+    C_{Y_\beta}}{2m}\sqrt{{u^{*2}+w^{*2}}}$ \\
+  $Y_p$ & $w^* + \frac{\rho V^* S b}{4m} C_{Y_p}$ \\
+  $Y_r$ & $-u^* + \frac{\rho V^* S b}{4m} C_{Y_r}$ \\
+  $Y_{\delta a}$ & $\frac{\rho V^{*2} S}{2m} C_{Y_{\delta a}}$ \\
+  $Y_{\delta r}$ & $\frac{\rho V^{*2} S}{2m} C_{Y_{\delta r}}$ \\
+  $L_v$ & $\frac{v^* \rho Sb^2}{4V^*}\left [ C_{p_p}p^* + C_{p_r} r^*\right ] +
+  v^*\rho Sb\left [C_{p_0} + C_{p_\beta} \beta^* + C_{p_{\delta
+        a}}\delta a^* + C_{p_{\delta r}} \delta r^* \right ] + \frac{\rho S
+    b C_{p_\beta}}{2}\sqrt{u^{*2}+w^{*2}}$ \\
+  $L_p$ & $\Gamma_1 q^* + \frac{\rho V^* S b^2}{4} C_{p_p}$ \\
+  $L_r$ & $-\Gamma_2 q^* + \frac{\rho V^* S b^2}{4} C_{p_r}$ \\
+  $L_{\delta a}$ & $\frac{\rho V^{*2} S b}{2} C_{p_{\delta a}}$ \\
+  $L_{\delta r}$ & $\frac{\rho V^{*2} S b}{2} C_{p_{\delta r}}$ \\
+
+  $N_v$ & $\frac{v^* \rho Sb^2}{4V^*}\left [ C_{r_p}p^* + C_{r_r} r^*\right ] +
+  v^* \rho Sb\left [C_{r_0} + C_{r_\beta} \beta^* + C_{r_{\delta
+        a}}\delta a^* + C_{r_{\delta r}} \delta r^* \right ] + \frac{\rho S
+    b C_{r_\beta}}{2}\sqrt{u^{*2}+w^{*2}}$ \\
+  $N_p$ & $\Gamma_7 q^* + \frac{\rho V^* S b^2}{4} C_{r_p}$ \\
+  $N_r$ & $-\Gamma_1 q^* + \frac{\rho V^* S b^2}{4} C_{r_r}$ \\
+  $N_{\delta a}$ & $\frac{\rho V^{*2} S b}{2} C_{r_{\delta a}}$ \\
+  $N_{\delta r}$ & $\frac{\rho V^{*2} S b}{2} C_{r_{\delta r}}$ \\
+  \hline
+\end{tabular}
+
+
+
+\section{Unified Model without Forces:}
+
+\begin{align*}
+  \dot{x_I} &= (\cos \theta \cos \psi) u + (\sin \phi \sin \theta \cos \psi -
+  \cos \phi \sin \psi) v + (\cos \phi \sin \theta \cos \psi + \sin \phi \sin
+  \psi)
+  w \\
+  \dot{y_I} &= (\cos \theta \sin \psi) u + (\sin \phi \sin \theta \sin \psi -
+  \cos \phi \cos \psi) v + (\cos \phi \sin \theta \sin \psi - \sin \phi \cos
+  \psi)
+  w \\
+  \dot{z_I} &= u \sin \theta - v \sin \phi \cos \theta - w \cos \phi \cos
+  \theta \\
+  \dot{u} &= rv - qw \\
+  \dot{v} &= pw - ru \\
+  \dot{w} &= qu - pv \\
+  \dot{\phi} &= p + (q \sin \phi  + r \cos \phi) \tan \theta \\
+  \dot{\theta} &= q \cos \phi -r \sin \phi  \\
+  \dot{\psi} &= (q \sin \phi + r \cos \phi ) \sec \theta \\
+  \dot{p} &= \left (- [I_{xz}(I_{yy} -
+    I_{xx}-I_{zz})p + [I^2_{xz}
+    + I_{zz}(I_{zz} - I_{yy})]r]q \right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+  \dot{q} &= \frac{-(I_{xx} - I_{zz})pr - I_{xz}(p^2-r^2)}{I_{22}} \\
+ \dot{r} &= \left (- [I_{xz}(I_{yy} -
+    I_{xx}-I_{zz})r +
+    [I^2_{xz} + I_{xx}(I_{xx} - I_{yy})]p]q\right ) / (I_{xx} I_{zz} - I^2_{xz}) \\
+\end{align*}
+ 
+
+
+
+\section{Unified Model:}
+
+\begin{align*}
+  \dot{x_I} &= (\cos \theta \cos \psi) u + (\sin \phi \sin \theta \cos \psi -
+  \cos \phi \sin \psi) v + (\cos \phi \sin \theta \cos \psi + \sin \phi \sin
+  \psi)
+  w \\
+  \dot{y_I} &= (\cos \theta \sin \psi) u + (\sin \phi \sin \theta \sin \psi -
+  \cos \phi \cos \psi) v + (\cos \phi \sin \theta \sin \psi - \sin \phi \cos
+  \psi)
+  w \\
+  \dot{z_I} &= u \sin \theta - v \sin \phi \cos \theta - w \cos \phi \cos
+  \theta \\
+  \dot{u} &= rv - qw - g \sin \theta + \frac{\bar{q}}{m} \left [ C_X(\alpha) +
+    C_{X_q}(\alpha) \frac{\bar{c} q}{2V_a} + C_{X_{\delta e}}(\alpha) \delta_e
+  \right ] + T \\
+  \dot{v} &= pw - ru + g \cos \theta \sin \phi + \frac{\bar{q}}{m} \left [
+    C_{Y_0} + C_{Y_\beta} (\beta) + C_{Y_p}\frac{b p}{2V_a} + C_{Y_r}\frac{b
+      r}{2V_a} + C_{Y_{\delta a}} \delta_a + C_{Y_{\delta r}} \delta_r
+  \right ] \\
+  \dot{w} &= qu - pv - g \cos \theta \cos \phi + \frac{\bar{q}}{m} \left [
+    C_Z(\alpha) + C_{Z_q}(\alpha) \frac{\bar{c} q}{2V_a} + C_{Z_{\delta
+        e}}(\alpha) \delta_e
+  \right ] \\
+  \dot{\phi} &= p + (q \sin \phi  + r \cos \phi) \tan \theta \\
+  \dot{\theta} &= q \cos \phi -r \sin \phi  \\
+  \dot{\psi} &= (q \sin \phi + r \cos \phi ) \sec \theta \\
+  \dot{p} &= \Gamma_1 pq - \Gamma_2 qr + \bar{q}b \left [ C_{p_0} +
+    C_{p_\beta} \beta + C_{p_p} \frac{bp}{2V_a} + C_{p_r} \frac{br}{2V_a} +
+    C_{p_{\delta a}} \delta_a + C_{p_{\delta r}} \delta_r \right ] \\
+  \dot{q} &=
+  \Gamma_5 pr - \Gamma_6 (p^2-r^2) + \bar{q}\frac{\bar{c}}{I_{yy}} \left [
+    C_{m_0} + C_{m_\alpha} \alpha + C_{m_q} \frac{\bar{c}q}{2V_a} + 
+    C_{m_{\delta e}} \delta_e \right ]\\
+  \dot{r} &= \Gamma_7 pq - \Gamma_1 qr + \bar{q}b \left [ C_{r_0} +
+    C_{r_\beta} \beta + C_{r_p} \frac{bp}{2V_a} + C_{r_r} \frac{br}{2V_a} +
+    C_{r_{\delta a}} \delta_a + C_{r_{\delta r}} \delta_r \right ] \\
+\end{align*}
+ 
+where 
+\begin{align*}
+  C_{p_0} &= \Gamma_3 C_{l_0} + \Gamma_4 C_{n_0} \\
+  C_{p_\beta} &= \Gamma_3 C_{l_\beta} + \Gamma_4 C_{n_\beta} \\
+  C_{p_p} &= \Gamma_3 C_{l_p} + \Gamma_4 C_{n_p} \\
+  C_{p_r} &= \Gamma_3 C_{l_r} + \Gamma_4 C_{n_r} \\
+  C_{p_{\delta_a}} &= \Gamma_3 C_{l_{\delta_a}} + \Gamma_4 C_{n_{\delta_a}} \\
+  C_{p_{\delta_r}} &= \Gamma_3 C_{l_{\delta_r}} + \Gamma_4 C_{n_{\delta_r}} \\
+  C_{r_0} &= \Gamma_4 C_{l_0} + \Gamma_8 C_{n_0} \\
+  C_{r_\beta} &= \Gamma_4 C_{l_\beta} + \Gamma_8 C_{n_\beta} \\
+  C_{r_p} &= \Gamma_4 C_{l_p} + \Gamma_8 C_{n_p} \\
+  C_{r_r} &= \Gamma_4 C_{l_r} + \Gamma_8 C_{n_r} \\
+  C_{r_{\delta_a}} &= \Gamma_4 C_{l_{\delta_a}} + \Gamma_8 C_{n_{\delta_a}} \\
+  C_{r_{\delta_r}} &= \Gamma_4 C_{l_{\delta_r}} + \Gamma_8 C_{n_{\delta_r}} \\
+\end{align*}
+
+and we push the dependence on the angle of attack into the lift and drag
+co-efficients, so that 
+\begin{align*}
+  C_X(\alpha) &= -C_D(\alpha) \cos \alpha + C_L(\alpha) \sin \alpha \\
+  C_{X_q}(\alpha) &= -C_{D_q}(\alpha) \cos \alpha + C_{L_q}(\alpha) \sin \alpha \\
+  C_{X_{\delta_e}}(\alpha) &= -C_{D_{\delta e}}(\alpha) \cos \alpha +
+  C_{L_{\delta_e}}(\alpha) \sin \alpha \\ 
+  C_Z(\alpha) &= -C_D(\alpha) \sin \alpha - C_L(\alpha) \cos \alpha \\
+  C_{Z_q}(\alpha) &= -C_{D_q}(\alpha) \sin \alpha - C_{L_q}(\alpha) \cos \alpha \\
+  C_{Z_{\delta_e}}(\alpha) &= -C_{D_{\delta e}}(\alpha) \sin \alpha -
+  C_{L_{\delta_e}}(\alpha) \cos \alpha \\ 
+\end{align*}
+
+\section{Cascaded Control Loops} 
+
+
+\begin{itemize}
+\item Roll attitude hold 
+
+\begin{align*}
+  E_{\phi_t} &= \phi^c_t - \phi_t\\
+  D_t &= \frac{E_{\phi_t} - E_{\phi_{t-1}}}{\Delta t} \\
+  \delta a_t &= k_{p_\phi}E_t  - k_{d_\phi}D_t
+\end{align*} 
+
+\item Course hold 
+\begin{align*}
+  E_{\chi_t} &= \chi^c_t - \chi_t\\
+  I_{\chi_t} &= I_{\chi_{t-1}} + E_{\chi_t}\Delta t\\
+  \phi^c &= k_{p_\chi}E_{\chi_t} + k_{i_\chi}I_{\chi_t}
+\end{align*} 
+
+\item Sideslip Hold 
+
+\begin{align*} 
+  E_{\beta_t} &= \beta^c_t - \beta_t\\
+  I_{\beta_t} &= I_{\beta_{t-1}} + E_{\beta_t}\Delta t\\
+  \delta r &= -k_{p_\beta}E_{\beta_t} - k_{i_\beta} I_{\beta_t}
+\end{align*}
+
+\item Pitch attitude hold 
+
+\begin{align*}
+  E_{\theta_t} &= \theta^c_t - \theta_t\\
+  D_t &= \frac{E_{\theta_t} - E_{\theta_{t-1}}}{\Delta t} \\
+  \delta e &= k_{p_\theta}E_{\theta_t} + k_{d_\theta}D_{\theta_t}
+\end{align*} 
+
+\item Altitude hold 
+\begin{align*}
+  E_{z_t} &= z^c_t - z_t\\
+  I_{z_t} &= I_{z_{t-1}} + E_{z_t}\Delta t\\
+  \theta^c &= k_{p_z}E_{z_t} + k_{i_z}I_{z_t}
+\end{align*} 
+
+\item Airspeed hold using commanded pitch 
+\begin{align*}
+  E_{V_t} &= V^c_t - V_t\\
+  I_{V_t} &= I_{V_{t-1}} + E_{V_t}\Delta t\\
+  \theta^c &= k_{p_{V_2}}E_{V_t} + k_{i_{V_2}}I_{V_t}
+\end{align*} 
+
+\item Airspeed hold using commanded throttle
+\begin{align*}
+  E_{V_t} &= V^c_t - V_t\\
+  I_{V_t} &= I_{V_{t-1}} + E_{V_t}\Delta t\\
+  \delta t &= \delta^* t + k_{p_V}E_{V_t} + k_{i_V}I_{V_t}
+\end{align*} 
+\end{itemize}
+\end{document} 
