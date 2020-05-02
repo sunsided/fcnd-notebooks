@@ -13,3 +13,5 @@ in the [`notebook`](notebook/) subdirectory.
 - [Representing Attitude: Euler Angles, Unit Quaternions, and Rotation
 Vectors](papers/attitude.pdf)
 - [Feasiblity of Motion Primitives for Choreographed Quadrocopter Flight](papers/schoellig_feasibility_of_motion_primitives.pdf)
+- [Feed-Forward Parameter Identification for Precise Periodic
+Quadrocopter Motions](papers/schoellig-acc12.pdf)
