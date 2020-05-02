@@ -15,3 +15,6 @@ Vectors](papers/attitude.pdf)
 - [Feasiblity of Motion Primitives for Choreographed Quadrocopter Flight](papers/schoellig_feasibility_of_motion_primitives.pdf)
 - [Feed-Forward Parameter Identification for Precise Periodic
 Quadrocopter Motions](papers/schoellig-acc12.pdf)
+- [Minimum Snap Trajectory Generation and Control for Quadrotors](papers/Mellinger.pdf)
+- [Polynomial Trajectory Planning for Aggressive
+Quadrotor Flight in Dense Indoor Environments](papers/Roy_Polynomial%20trajectory.pdf)
